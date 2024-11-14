@@ -3,6 +3,31 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QColorDialog, QPushButton
 from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QKeySequence
 from PyQt5.QtCore import Qt, QPoint
 
+class OnBoardingDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('pyxel - onboarding')
+        self.setGeometry(100, 100, 300, 150)
+        layout = QVBoxLayout()
+        new_file_button = QPushButton('new file', self)
+        new_file_button.clicked.connect(self.create_new_file)
+        layout.addWidget(new_file_button)
+        load_file_button = QPushButton('load file', self)
+        load_file_button.clicked.connect(self.load_file)
+        layout.addWidget(load_file_button)
+        self.setLayout(layout)
+        self.result = None
+
+    def create_new_file(self):
+        self.result = 'new'
+        self.accept()
+
+    def load_file(self):
+        file_path, _QFileDialog.getOpenFileName(self, 'load file (w.i.p)', '', 'Image Files (*.png *.jpg *.bmp);;All Files (*)')
+        if file_path:
+            self.result = file_path
+            self.accept()
+
 class PyxelApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -255,7 +280,14 @@ class PyxelApp(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = PyxelApp()
-    window.draw_grid()
-    window.show()
+    onboarding_dialog = OnBoardingDialog()
+    if onboarding_dialog.exec_() == QDialog.Accepted:
+        if onboarding_dialog.result == 'new':
+            window = PyxelApp()
+            window.draw_grid()
+            window.show()
+        elif onboarding_dialog.result:
+            window = PyxelApp()
+            window.draw_grid()
+            window.show()
     sys.exit(app.exec_())
