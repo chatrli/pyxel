@@ -1,6 +1,6 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QColorDialog, QPushButton, QLabel, QInputDialog, QFileDialog, QWidget, QHBoxLayout, QVBoxLayout, QDialog, QGridLayout, QListWidget, QListWidgetItem
-from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap
+from PyQt5.QtWidgets import QApplication, QMainWindow, QColorDialog, QPushButton, QLabel, QInputDialog, QFileDialog, QWidget, QHBoxLayout, QVBoxLayout, QDialog, QGridLayout, QListWidget, QListWidgetItem, QSlider
+from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap, QKeySequence
 from PyQt5.QtCore import Qt, QPoint
 
 class PyxelApp(QMainWindow):
@@ -28,6 +28,7 @@ class PyxelApp(QMainWindow):
         self.pen_color = QColor(Qt.black)
         self.drawing = False
         self.show_grid = False
+        self.draw_size = 10
 
         # buttons
         self.buttons()
@@ -45,25 +46,29 @@ class PyxelApp(QMainWindow):
 
 
     def buttons(self):
-        # select a color (is not saved)
+        # select a color
         color_button = QPushButton("Color", self)
         color_button.clicked.connect(self.select_color)
         color_button.move(0, 620)
+        color_button.setShortcut(QKeySequence('shift+c'))
 
         # toggle grid on canvas (on/off)
         grid_button = QPushButton("Grid", self)
         grid_button.clicked.connect(self.toggle_grid)
         grid_button.move(100, 620)
+        grid_button.setShortcut(QKeySequence('shift+g'))
 
         # save the file with all layers (save locally)
-        save_button = QPushButton("Save", self)
+        save_button = QPushButton("Save As File", self)
         save_button.clicked.connect(self.save_canvas)
         save_button.move(200, 620)
+        save_button.setShortcut(QKeySequence('ctrl+shift+s'))
 
         # edit the color palette
         edit_palette_button = QPushButton("Edit Palette", self)
         edit_palette_button.clicked.connect(self.edit_palette)
         edit_palette_button.move(300, 620)
+        edit_palette_button.setShortcut(QKeySequence('ctrl+shift+c'))
 
         # add a layer
         add_layer_button = QPushButton("+ Layer", self)
@@ -81,12 +86,20 @@ class PyxelApp(QMainWindow):
         self.layer_list.itemClicked.connect(self.select_layer)
         self.update_layer_list()
 
+        # draw size (10 = 1px)
+        draw_size_slider = QSlider(Qt.Horizontal, self)
+        draw_size_slider.setGeometry(0, 590, 100, 30)
+        draw_size_slider.setMinimum(0)
+        draw_size_slider.setMaximum(100)
+        draw_size_slider.setValue(10)
+        draw_size_slider.setTickInterval(10)
+        draw_size_slider.valueChanged.connect(self.update_draw_size)
 
     def init_color_palette(self):
         for color_hex in self.palette_colors:
             color_swatch = QPushButton()
             color_swatch.setStyleSheet(f"background-color: {color_hex}; border: 1px solid #333;")
-            color_swatch.setFixedSize(30, 30)
+            color_swatch.setFixedSize(100, 100)
             color_swatch.clicked.connect(lambda _, color=color_hex: self.set_pen_color(color))
             self.palette_layout.addWidget(color_swatch)
 
@@ -159,13 +172,13 @@ class PyxelApp(QMainWindow):
         painter = QPainter(self.layers[self.current_layer_index])
         painter.setPen(Qt.NoPen)
         painter.setBrush(self.pen_color)
-        painter.drawRect(pixel_pos.x(), pixel_pos.y(), self.pixel_size, self.pixel_size)
+        painter.drawRect(pixel_pos.x(), pixel_pos.y(), self.draw_size, self.draw_size)
         painter.end()
         self.update_canvas()
 
     def save_canvas(self):
         options = QFileDialog.Options()
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)", options=options)
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save As File", "", "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)", options=options)
         
         if file_path:
             combined_pixmap = QPixmap(self.canvas.size())
@@ -235,6 +248,10 @@ class PyxelApp(QMainWindow):
             item = QListWidgetItem(f"Layer {i + 1}")
             self.layer_list.addItem(item)
         self.layer_list.setCurrentRow(self.current_layer_index)
+
+    def update_draw_size(self, value):
+        self.draw_size = value
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
