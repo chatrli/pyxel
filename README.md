@@ -8,3 +8,6 @@ Pixel Art Editor
 - toggle grid
 - save file
 - layers
+- modify pixel size
+- create new file
+- load file (w.i.p)
