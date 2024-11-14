@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QColorDialog, QPushButton, QLabel, QInputDialog, QFileDialog, QWidget, QHBoxLayout, QVBoxLayout, QDialog, QGridLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QColorDialog, QPushButton, QLabel, QInputDialog, QFileDialog, QWidget, QHBoxLayout, QVBoxLayout, QDialog, QGridLayout, QListWidget, QListWidgetItem
 from PyQt5.QtGui import QPainter, QPen, QColor, QPixmap
 from PyQt5.QtCore import Qt, QPoint
 
@@ -7,36 +7,32 @@ class PyxelApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("pyxel")
-        self.setGeometry(100, 100, 600, 700)
+        self.setGeometry(100, 100, 600, 750)
         self.pixel_size = 10
         self.canvas_width = 580 // self.pixel_size * self.pixel_size
         self.canvas_height = 580 // self.pixel_size * self.pixel_size
 
+        # setup canvas
         self.canvas = QLabel(self)
         self.canvas.setGeometry(10, 10, self.canvas_width, self.canvas_height)
-        self.main_pixmap = QPixmap(self.canvas.size())
-        self.main_pixmap.fill(Qt.white)
         self.grid_overlay = QPixmap(self.canvas.size())
         self.grid_overlay.fill(Qt.transparent)
 
-        self.canvas.setPixmap(self.main_pixmap)
+        # setup layer
+        self.layers = [QPixmap(self.canvas.size())]
+        self.layers[0].fill(Qt.white)
+        self.current_layer_index = 0
+        self.canvas.setPixmap(self.layers[0])
 
+        # drawing default settings
         self.pen_color = QColor(Qt.black)
         self.drawing = False
         self.show_grid = False
 
-        color_button = QPushButton("Select Color", self)
-        color_button.clicked.connect(self.select_color)
-        color_button.move(10, 620)
+        # buttons
+        self.buttons()
 
-        grid_button = QPushButton("Toggle Grid", self)
-        grid_button.clicked.connect(self.toggle_grid)
-        grid_button.move(100, 620)
-
-        save_button = QPushButton("Save", self)
-        save_button.clicked.connect(self.save_canvas)
-        save_button.move(200, 620)
-
+        # setup default color palette
         self.color_palette = QWidget(self)
         self.color_palette.setGeometry(10, 650, 580, 40)
         self.palette_layout = QHBoxLayout()
@@ -47,9 +43,44 @@ class PyxelApp(QMainWindow):
         ]
         self.init_color_palette()
 
+
+    def buttons(self):
+        # select a color (is not saved)
+        color_button = QPushButton("Color", self)
+        color_button.clicked.connect(self.select_color)
+        color_button.move(0, 620)
+
+        # toggle grid on canvas (on/off)
+        grid_button = QPushButton("Grid", self)
+        grid_button.clicked.connect(self.toggle_grid)
+        grid_button.move(100, 620)
+
+        # save the file with all layers (save locally)
+        save_button = QPushButton("Save", self)
+        save_button.clicked.connect(self.save_canvas)
+        save_button.move(200, 620)
+
+        # edit the color palette
         edit_palette_button = QPushButton("Edit Palette", self)
         edit_palette_button.clicked.connect(self.edit_palette)
         edit_palette_button.move(300, 620)
+
+        # add a layer
+        add_layer_button = QPushButton("+ Layer", self)
+        add_layer_button.clicked.connect(self.add_layer)
+        add_layer_button.move(400, 620)
+
+        # remove a layer
+        remove_layer_button = QPushButton("- Layer", self)
+        remove_layer_button.clicked.connect(self.remove_layer)
+        remove_layer_button.move(500, 620)
+
+        # show all layers (layer is clickable)
+        self.layer_list = QListWidget(self)
+        self.layer_list.setGeometry(500, 10, 80, 580)
+        self.layer_list.itemClicked.connect(self.select_layer)
+        self.update_layer_list()
+
 
     def init_color_palette(self):
         for color_hex in self.palette_colors:
@@ -78,11 +109,17 @@ class PyxelApp(QMainWindow):
         self.update_canvas()
 
     def update_canvas(self):
-        combined_pixmap = QPixmap(self.main_pixmap)
+        combined_pixmap = QPixmap(self.canvas.size())
+        combined_pixmap.fill(Qt.white)
+        combined_painter = QPainter(combined_pixmap)
+
+        for layer in self.layers:
+            combined_painter.drawPixmap(0, 0, layer)
+
         if self.show_grid:
-            combined_painter = QPainter(combined_pixmap)
             combined_painter.drawPixmap(0, 0, self.grid_overlay)
-            combined_painter.end()
+
+        combined_painter.end()
         self.canvas.setPixmap(combined_pixmap)
 
     def draw_grid(self):
@@ -119,7 +156,7 @@ class PyxelApp(QMainWindow):
 
     def draw_pixel(self, pos):
         pixel_pos = self.get_pixel_position(pos - self.canvas.pos())
-        painter = QPainter(self.main_pixmap)
+        painter = QPainter(self.layers[self.current_layer_index])
         painter.setPen(Qt.NoPen)
         painter.setBrush(self.pen_color)
         painter.drawRect(pixel_pos.x(), pixel_pos.y(), self.pixel_size, self.pixel_size)
@@ -128,11 +165,17 @@ class PyxelApp(QMainWindow):
 
     def save_canvas(self):
         options = QFileDialog.Options()
-        file_path, _ = QFileDialog.getSaveFileName(self, "Save Image", "", "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)", options=options)
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)", options=options)
         
         if file_path:
-            self.main_pixmap.save(file_path)
-            print(f"Image saved to {file_path}")
+            combined_pixmap = QPixmap(self.canvas.size())
+            combined_pixmap.fill(Qt.white)
+            painter = QPainter(combined_pixmap)
+            for layer in self.layers:
+                painter.drawPixmap(0, 0, layer)
+            painter.end()
+            combined_pixmap.save(file_path)
+            print(f"File saved to {file_path}")
 
     def edit_palette(self):
         self.temp_palette_colors = self.palette_colors[:]
@@ -166,6 +209,32 @@ class PyxelApp(QMainWindow):
     def apply_temp_palette(self):
         self.palette_colors = self.temp_palette_colors
         self.update_color_palette()
+
+    def add_layer(self):
+        new_layer = QPixmap(self.canvas.size())
+        new_layer.fill(Qt.transparent)
+        self.layers.append(new_layer)
+        self.current_layer_index = len(self.layers) - 1
+        self.update_layer_list()
+        self.update_canvas()
+
+    def remove_layer(self):
+        if len(self.layers) > 1:
+            del self.layers[self.current_layer_index]
+            self.current_layer_index = max(0, self.current_layer_index - 1)
+            self.update_layer_list()
+            self.update_canvas()
+
+    def select_layer(self, item):
+        self.current_layer_index = self.layer_list.row(item)
+        self.update_canvas()
+
+    def update_layer_list(self):
+        self.layer_list.clear()
+        for i, layer in enumerate(self.layers):
+            item = QListWidgetItem(f"Layer {i + 1}")
+            self.layer_list.addItem(item)
+        self.layer_list.setCurrentRow(self.current_layer_index)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
